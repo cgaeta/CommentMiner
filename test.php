@@ -1,24 +1,4 @@
 <style>
-	/*
-	.search_test_cont *:nth-child(2n) {
-		background-color: #CCC;
-	}
-
-	.search_test_cont * *:nth-child(2n+1) {
-		background-color: #DDD;
-	}
-	
-	.search_test_cont * * *:nth-child(2n) {
-		background-color: #EEE;
-	}
-
-	.search_test_cont *,
-	.search_test_cont * *,
-	.search_test_cont * * * {
-		display: block;
-	}
-	*/
-	
 	.search_test_cont * {
 		padding-left: 20px;
 		background-color: inherit;
@@ -34,6 +14,8 @@
 </style>
 <?php
 
+// if no URL corresponding to a Reddit thread is specified, input a URL in form
+  // and optionally, a classname corresponding to a single post
 if(!isset($_REQUEST["url"])){ ?>
 
 <form name="findData" id="form0" method="get" action="test.php">
@@ -64,10 +46,11 @@ if(!isset($_REQUEST["url"])){ ?>
 else {
 	
 	$url = $_REQUEST["url"];
-	$classes = explode(" ", $_REQUEST["class"]);
-	$userID = explode(" ", $_REQUEST["userid"]);
-	$comments = explode(" ", $_REQUEST["comments"]);
+	$classes = explode(" ", $_REQUEST["class"]);		// retrieve post classname from previous search, if saved
+	$userID = explode(" ", $_REQUEST["userid"]);		// retrieve user classname, if saved
+	$comments = explode(" ", $_REQUEST["comments"]);	// retrieve comments classname, if saved
 	
+	// explode and concatenate classnames
 	$query = array();
 	$query[0] = ".";
 	foreach($classes as $class){
@@ -86,6 +69,7 @@ else {
 
 	libxml_use_internal_errors(true);
 	
+	// retrieve HTML document
 	$doc = DOMDocument::loadHTMLFile($url);
 	$html = $doc->saveHTML();
 	$doc = DOMDocument::loadHTML(mb_convert_encoding($html, "UTF-8"));
@@ -93,68 +77,59 @@ else {
 	libxml_use_internal_errors(false);
 
 	$xpath = new DOMXpath($doc);
-	
-	//header('Content-Type: text/csv; charset=utf-8');
-	//header('Content-Disposition: attachment; filename=data.csv');
 				
 	$file = fopen("php://output", "w");
 
-	//if(!isset($_REQUEST["userid"]) || !isset($_REQUEST["comments"])){
+	// if no search parameters saved, retrieve first post as an example
 	if(!isset($_REQUEST["save"])){
 		$posts = $xpath->query($query[0]."[1]");
 	}
+	
+	// if search parameters saved, retrieve all posts with post classname
 	else{
 		$posts = $xpath->query($query[0]);
 	}
 
-		foreach($posts as $post){
-			
-			$line = array();
-			
-			if(!isset($_REQUEST["save"])){
-				$postTxt = $doc->saveHTML($post);
-				echo "<div style='border: 1px solid #000;' id='search_test_cont'>$postTxt</div>";
-			}
-						
-			if(isset($_REQUEST["userid"])){
-		$users = $xpath->query($query[1], $post);
-				
-				if($users->length < 1) continue;
-				
-				//echo "Length: ".$users->length."<br/>".$users->item(1)->nodeValue;
-				
-				foreach($users as $user){
-					//$userTxt = $doc->saveHTML($user);
-					$userTxt = $user->nodeValue;
-					//$line[] = $user->nodeValue;
-				}
-			}
-			
-			if(isset($_REQUEST["comments"])){
-		$comments = $xpath->query($query[2], $post);
-				
-				if($comments->length < 1) continue;
+	// render posts
+	foreach($posts as $post){
 
-				foreach($comments as $comment){
-					//$commentTxt = $doc->saveHTML($comment);
-					$commentTxt = $comment->nodeValue;
-					//$commentTxt = str_replace(array('\n', '\r'), ' ', $comment->nodeValue);
-					//$line[] = $comment->nodeValue;
-				}
-			}
-			
-			//echo "<div><h3>$userTxt</h3><p>$commentTxt</p></div><br/>";
-			echo "<p>$commentTxt</p><br/><br/>";
-			//echo "\n$userTxt, \"$commentTxt\"";
-			//$list[] = "\n$userTxt, \'$commentTxt\'";
-			
-			//fputcsv($file, $line);
-			//echo "<br/>";
+		$line = array();
+
+		// if no parameters saved, render first post as an example
+		if(!isset($_REQUEST["save"])){
+			$postTxt = $doc->saveHTML($post);
+			echo "<div style='border: 1px solid #000;' id='search_test_cont'>$postTxt</div>";
 		}
-	//}
+		
+		// if user classname specified, save username
+		if(isset($_REQUEST["userid"])){
+			$users = $xpath->query($query[1], $post);
+				
+			if($users->length < 1) continue;
+							
+			foreach($users as $user){
+				$userTxt = $user->nodeValue;
+			}
+		}
+		
+		// if text classname specified, save text content
+		if(isset($_REQUEST["comments"])){
+			$comments = $xpath->query($query[2], $post);
+			
+			if($comments->length < 1) continue;
+
+			foreach($comments as $comment){
+				$commentTxt = $comment->nodeValue;
+			}
+		}
+			
+		echo "<p>$commentTxt</p><br/><br/>";
+
+	}
 	
 	fclose($file);
 	
+	// load form to identify elements to be collected
 	if(!isset($_REQUEST["save"])){
 	?>
 	<form name="narrow" id="form1" action="test">
@@ -165,18 +140,21 @@ else {
 					<label>URL:</label>
 				</li>
 				<li>
+					<!-- preload with url -->
 					<input type="text" name="url" value="<?php echo $url; ?>" />
 				</li>
 				<li>
 					<label>Class:</label>
 				</li>
 				<li>
+					<!-- preload with saved posts' classname, if available -->
 					<input type="text" name="class" value="<?php echo (isset($_REQUEST["class"]) ? $_REQUEST["class"] : "entry"); ?>" />
 				</li>
 				<li>
 					<label>UserID:</label>
 				</li>
 				<li>
+					<!-- preload with saved users' classname, if available -->
 					<input type="text" id="userclass" name="userid" value="<?php echo (isset($_REQUEST["userid"]) ? $_REQUEST["userid"] : "author"); ?>" />
 					<a href="#" id="selectuser">Click n' Select</a>
 				</li>
@@ -184,10 +162,12 @@ else {
 					<label>Comment Container:</label>
 				</li>
 				<li>
+					<!-- preload with saved comments' classname, if available -->
 					<input type="text" name="comments" id="commentsclass" value="<?php echo (isset($_REQUEST["comments"]) ? $_REQUEST["comments"] : "md"); ?>" />
 					<a href="#" id="selectcomments">Click n' Select</a>
 				</li>
 				<li>
+					<!-- save classnames to be searched again -->
 					<label>Save search:</label>
 					<input type="checkbox" name="save" />
 				</li>
@@ -198,6 +178,7 @@ else {
 		</fieldset>
 	</form>
 <script>
+	// click on username and store element's classname
 	function findUserClass(){
 		event.stopPropagation();
 		event.preventDefault();
@@ -206,6 +187,7 @@ else {
 		clearListeners();
 	}
 	
+	// click on post text and store element's classname
 	function findCommentClass(){
 		event.stopPropagation();
 		event.preventDefault();
@@ -244,6 +226,7 @@ else {
 		this.style.backgroundColor = "";
 	}
 	
+	// recursively add event listeners to sample post
 	function highlightChildren(el){
 				
 		for(var i = 0; i < el.children.length; i++){
@@ -271,12 +254,12 @@ else {
 		highlightChildren(test);
 	});
 	
-	document.getElementById('selectuser').addEventListener('click', function(){
+	document.getElementById('selectcomments').addEventListener('click', function(){
 		event.preventDefault();
 		if(searching) return;
 		searching = true;
 		
-		inputSearched = findUserClass;
+		inputSearched = findCommentClass;
 		highlightChildren(test);
 	});
 	
